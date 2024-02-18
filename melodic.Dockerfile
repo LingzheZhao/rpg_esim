@@ -1,42 +1,89 @@
-FROM ros:melodic-ros-base
+FROM osrf/ros:melodic-desktop-full
 
 ARG DEBIAN_FRONTEND=noninteractive 
 ARG PROJ_PATH=/home/user/sim_ws
 ARG ESIM_PATH=$PROJ_PATH/src/rpg_esim
+ENV TZ=Asia/Shanghai LANG=C.UTF-8 LC_ALL=C.UTF-8 PIP_NO_CACHE_DIR=1 PIP_CACHE_DIR=/tmp/
 
 # Installing some essential system packages
-RUN apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-key 4B63CF8FDE49746E98FA01DDAD19BAB3CBF125EA
-RUN apt-get update
-RUN apt-get install -y \
+RUN sed -i "s/archive.ubuntu.com/mirrors.ustc.edu.cn/g" /etc/apt/sources.list &&\
+    sed -i "s/security.ubuntu.com/mirrors.ustc.edu.cn/g" /etc/apt/sources.list &&\
+    apt-get update && apt-get upgrade -y &&\
+    apt-get install -y --no-install-recommends \
+      # Common
+      autoconf automake autotools-dev build-essential ca-certificates \
+      make cmake ninja-build pkg-config g++ ccache yasm \
+      ccache doxygen graphviz plantuml \
+      daemontools krb5-user ibverbs-providers libibverbs1 \
+      libkrb5-dev librdmacm1 libssl-dev libtool \
+      libnuma1 libnuma-dev libpmi2-0-dev \
+      openssh-server openssh-client nfs-common \
+      ## Tools
+      git curl wget unzip nano vim-tiny net-tools sudo htop iotop iputils-ping \
+      cloc rsync screen tmux xz-utils software-properties-common &&\
+    wget "https://raw.githubusercontent.com/ros/rosdistro/master/ros.key" -O - | apt-key add - &&\
+    # echo "deb https://mirrors.tuna.tsinghua.edu.cn/ros/ubuntu/ bionic main /" > \
+    #     /etc/apt/sources.list.d/ros1-snapshots.list &&\
+    apt-get install -y --no-install-recommends \
+      ## Deps
+      libassimp-dev \
+      libfftw3-dev libfftw3-doc \
+      libglew-dev \
+      libglfw3-dev \
+      libglm-dev \
+      libopencv-dev \
+      libproj-dev \
+      libyaml-cpp-dev \
+      python3-rosdep \
       python3-vcstool \
       python3-catkin-tools \
       python3-pip \
-      libproj-dev \
-      libglm-dev \
-      libopencv-dev \
-      ros-melodic-image-transport \
+      ros-melodic-camera-info-manager \
       ros-melodic-cv-bridge \
-      autoconf \
-      libyaml-cpp-dev \
       ros-melodic-eigen-conversions \
-      libtool \
+      ros-melodic-image-view \
+      ros-melodic-image-geometry \
+      ros-melodic-image-transport \
+      ros-melodic-pcl-ros \
+      ros-melodic-rviz \
+      ros-melodic-sophus \
       ros-melodic-tf-conversions \
       ros-melodic-tf \
-      ros-melodic-pcl-ros \
-      libglfw3-dev \
-      libassimp-dev \
-      ros-melodic-rviz
+    && rm /etc/ssh/ssh_host_ecdsa_key \
+    && rm /etc/ssh/ssh_host_ed25519_key \
+    && rm /etc/ssh/ssh_host_rsa_key \
+    && cp /etc/ssh/sshd_config /etc/ssh/sshd_config_bak \
+    && sed -i "s/^.*X11Forwarding.*$/X11Forwarding yes/" /etc/ssh/sshd_config \
+    && sed -i "s/^.*X11UseLocalhost.*$/X11UseLocalhost no/" /etc/ssh/sshd_config \
+    && grep "^X11UseLocalhost" /etc/ssh/sshd_config || echo "X11UseLocalhost no" >> /etc/ssh/sshd_config \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
-RUN apt-get clean autoclean &&\
-    rm -rf /var/lib/apt/lists/*
+WORKDIR /tmp
 
-RUN python3 -m pip install -U pip
+RUN wget -O - https://apt.kitware.com/keys/kitware-archive-latest.asc 2>/dev/null | sudo apt-key add - &&\
+    apt-add-repository 'deb https://apt.kitware.com/ubuntu/ bionic main' &&\
+    apt-get update &&\
+    apt-get install -y cmake libzmq3-dev \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN git clone --recursive https://github.com/zeromq/cppzmq.git &&\
+    cd cppzmq &&\
+    git checkout v4.10.0 &&\
+    mkdir build &&\
+    cd build &&\
+    cmake -DCPPZMQ_BUILD_TESTS=OFF .. &&\
+    make -j install &&\
+    cd /tmp &&\
+    rm -rf cppzmq
 
 WORKDIR $PROJ_PATH
-RUN catkin init
-RUN catkin config --extend /opt/ros/melodic --cmake-args -DCMAKE_BUILD_TYPE=Release
+RUN pip3 install -U pip --no-cache-dir &&\
+    catkin init &&\
+    catkin config --extend /opt/ros/melodic --cmake-args -DCMAKE_BUILD_TYPE=Release &&\
+    mkdir -p $ESIM_PATH
 
-RUN mkdir -p $ESIM_PATH
 COPY ./ $ESIM_PATH
 WORKDIR $PROJ_PATH/src
 RUN vcs-import < $ESIM_PATH/dependencies.yaml
@@ -59,4 +106,8 @@ RUN touch \
 
 WORKDIR $PROJ_PATH
 RUN catkin build esim_ros
-#ENTRYPOINT  [". /home/user/sim_ws/devel/setup.bash"]
+
+RUN echo ". /opt/ros/melodic/setup.bash" >> /root/.bashrc &&\
+    echo ". /home/user/sim_ws/devel/setup.bash" >> /root/.bashrc
+
+ENTRYPOINT  [". /home/user/sim_ws/devel/setup.bash"]
