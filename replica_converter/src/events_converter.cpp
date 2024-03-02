@@ -9,13 +9,15 @@
 namespace events_converter_node {
 
 EventsConverter::EventsConverter(fs::path input_dir,
-                                 fs::path output_path)
+                                 fs::path output_path,
+                                 size_t max_events_rate)
 : input_dir_(input_dir), output_path_(output_path)
 {
   images_dir_ = input_dir / "Gray";
   // calib_path_ = input_dir / "calib.yaml";
   times_path_ = input_dir / "poses_ts.txt";
   events_path_ = input_dir / "event_threshold_0.1" / "gray_events_data.npy";
+  max_events_rate_ = max_events_rate;
 
   rosbag_writer_ = std::make_shared<RosbagWriter>(output_path_, 1);
 
@@ -32,7 +34,7 @@ EventsConverter::EventsConverter(fs::path input_dir,
 
 void EventsConverter::run()
 {
-  const size_t MAX_EVENTS_RATE = 40000;
+  // const size_t MAX_EVENTS_RATE = 800000;
   const size_t NUM_CHUNCKS = events_vector_.size();
 
   // Calculate image framerate from times_vector_
@@ -40,7 +42,7 @@ void EventsConverter::run()
   double framerate = times_vector_.size() / total_time;
   std::cout << "Image framerate: " << framerate << " frames per second.\n";
 
-  const size_t MAX_EVENTS_PER_CHUNCK = MAX_EVENTS_RATE / framerate;
+  const size_t MAX_EVENTS_PER_CHUNCK = max_events_rate_ / framerate;
 
   for(size_t i = 0; i < NUM_CHUNCKS; i++)
   {
@@ -65,7 +67,7 @@ void EventsConverter::run()
 
     ColorImagePtrVector image_chunck;
     const fs::path& current_image_path = images_paths_vector_[i];
-    std::cout << "Reading image: " << current_image_path << std::endl;
+    // std::cout << "Reading image: " << current_image_path << std::endl;
     cv::Mat image_8u = cv::imread(current_image_path.string());
     ColorImage image_32f;
     image_8u.convertTo(image_32f, CV_32F);

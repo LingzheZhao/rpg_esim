@@ -7,14 +7,15 @@ int main(int argc, char** argv)
     using namespace events_converter_node;
     namespace fs = std::filesystem;
 
-    if(argc != 3)
+    if(argc != 4)
     {
-        std::cerr << "Usage: " << argv[0] << " <input_dir> <output_path>\n";
+        std::cerr << "Usage: " << argv[0] << " <input_dir> <output_path> <max_events_rate>\n";
         return 1;
     }
 
     fs::path input_dir = argv[1];
     fs::path output_path = argv[2];
+    size_t max_events_rate = std::stoul(argv[3]);
 
     if(!fs::exists(input_dir))
     {
@@ -38,9 +39,10 @@ int main(int argc, char** argv)
     }
 
     std::cout << "Input dir: " << input_dir << std::endl
-              << "Output path: " << output_path << std::endl;
+              << "Output path: " << output_path << std::endl
+              << "Max events rate: " << max_events_rate << std::endl;
 
-    EventsConverter converter(input_dir, output_path);
+    EventsConverter converter(input_dir, output_path, max_events_rate);
 
     return 0;
 }

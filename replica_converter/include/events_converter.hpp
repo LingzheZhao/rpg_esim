@@ -22,7 +22,7 @@ using npy::npy_data;
 class EventsConverter
 {
 public:
-  EventsConverter(fs::path input_dir, fs::path output_path);
+  EventsConverter(fs::path input_dir, fs::path output_path, size_t max_events_rate);
   ~EventsConverter() = default;
 
 private:
@@ -52,6 +52,7 @@ private:
 
   npy_data<double>    events_data_;
   size_t              num_events_;
+  size_t              max_events_rate_;
 
   EventsVector events_vector_;
 
