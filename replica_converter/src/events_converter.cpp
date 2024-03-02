@@ -32,7 +32,16 @@ EventsConverter::EventsConverter(fs::path input_dir,
 
 void EventsConverter::run()
 {
+  const size_t MAX_EVENTS_RATE = 40000;
   const size_t NUM_CHUNCKS = events_vector_.size();
+
+  // Calculate image framerate from times_vector_
+  double total_time = times_vector_.back() - times_vector_.front();
+  double framerate = times_vector_.size() / total_time;
+  std::cout << "Image framerate: " << framerate << " frames per second.\n";
+
+  const size_t MAX_EVENTS_PER_CHUNCK = MAX_EVENTS_RATE / framerate;
+
   for(size_t i = 0; i < NUM_CHUNCKS; i++)
   {
     std::cout << "Exporting "
@@ -40,7 +49,16 @@ void EventsConverter::run()
               << " data chuncks to rosbag...\n";
 
     EventsVector events_chunck;
-    events_chunck.emplace_back(events_vector_[i]);
+    // events_chunck.emplace_back(events_vector_[i]);
+
+    for(size_t j = 0; j < events_vector_[i].size(); j += MAX_EVENTS_PER_CHUNCK)
+    {
+      Events batch(events_vector_[i].begin() + j,
+                  j + MAX_EVENTS_PER_CHUNCK <= events_vector_[i].size() ?
+                  events_vector_[i].begin() + j + MAX_EVENTS_PER_CHUNCK :
+                  events_vector_[i].end());
+      events_chunck.emplace_back(batch);
+    }
 
     ColorImagePtrVector image_chunck;
     image_chunck.emplace_back(images_vector_[i]);
