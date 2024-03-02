@@ -22,10 +22,10 @@ EventsConverter::EventsConverter(fs::path input_dir,
   // readCalibration(calib_path_);
   initCameraRig();
 
-  readImages(images_dir_);
+  findImages(images_dir_);
   readImagesTimestamps(times_path_);
   readEvents(events_path_);
-  assert(images_vector_.size() == times_vector_.size());
+  assert(images_paths_vector_.size() == times_vector_.size());
   sliceEvents();
   run();
 }
@@ -44,9 +44,12 @@ void EventsConverter::run()
 
   for(size_t i = 0; i < NUM_CHUNCKS; i++)
   {
-    std::cout << "Exporting "
-              << i << " / " << NUM_CHUNCKS
-              << " data chuncks to rosbag...\n";
+    if(i % 50 == 0)
+    {
+      std::cout << "Exporting "
+                << i << " / " << NUM_CHUNCKS
+                << " data chuncks to rosbag...\n";
+    }
 
     EventsVector events_chunck;
     // events_chunck.emplace_back(events_vector_[i]);
@@ -61,7 +64,13 @@ void EventsConverter::run()
     }
 
     ColorImagePtrVector image_chunck;
-    image_chunck.emplace_back(images_vector_[i]);
+    const fs::path& current_image_path = images_paths_vector_[i];
+    std::cout << "Reading image: " << current_image_path << std::endl;
+    cv::Mat image_8u = cv::imread(current_image_path.string());
+    ColorImage image_32f;
+    image_8u.convertTo(image_32f, CV_32F);
+    image_32f /= 255.0;
+    image_chunck.emplace_back(std::make_shared<ColorImage>(image_32f));
 
     publishData(static_cast<Time>(times_vector_[i] * 1e9),
                 events_chunck,
@@ -131,7 +140,7 @@ bool EventsConverter::readEvents(fs::path events_path)
   return true;
 }
 
-bool EventsConverter::readImages(fs::path images_dir)
+bool EventsConverter::findImages(fs::path images_dir)
 {
   if(!fs::exists(images_dir)) {
     std::cerr << "Directory does not exist: " << images_dir << std::endl;
@@ -146,20 +155,11 @@ bool EventsConverter::readImages(fs::path images_dir)
         filesSorted.insert(entry.path());
     }
   }
-  std::cout << "Found " << filesSorted.size() << "images.\n";
+  std::cout << "Found " << filesSorted.size() << " images.\n";
 
   for (const auto& entry : filesSorted)
   {
-    std::cout << "Reading image: " << entry << std::endl;
-    cv::Mat image_8u = cv::imread(entry.string());
-    ColorImage image_32f;
-    image_8u.convertTo(image_32f, CV_32F);
-    image_32f /= 255.0;
-
-    cv::Scalar mean_val = cv::mean(image_32f);
-    std::cout << "Mean value of image: " << mean_val[0] << std::endl;
-
-    images_vector_.emplace_back(std::make_shared<ColorImage>(image_32f));
+    images_paths_vector_.emplace_back(entry);
   }
   return true;
 }

@@ -27,7 +27,7 @@ public:
 
 private:
   bool readEvents(fs::path events_path);
-  bool readImages(fs::path images_dir);
+  bool findImages(fs::path images_dir);
   // bool readCalibration(fs::path calib_path);
   bool readImagesTimestamps(fs::path timestamps_path);
   void initCameraRig();
@@ -47,7 +47,7 @@ private:
   fs::path  times_path_;
   fs::path  events_path_;
 
-  ColorImagePtrVector images_vector_;
+  std::vector<fs::path>  images_paths_vector_;
   std::vector<double> times_vector_;
 
   npy_data<double>    events_data_;
